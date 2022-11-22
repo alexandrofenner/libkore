@@ -1,0 +1,12 @@
+{
+	"dbTypeId": 1,
+	"serverPort": 3050,
+	"serverHost": "127.0.0.1",
+	"database": "F:\\Temp\\faroni\\ECODADOS.ECO",
+	"schemaName": "",
+	"loginUserName": "SYSDBA",
+	"loginPassword": "masterkey",
+	"charSetName": "",
+	"options": 0,
+	"ipVersion": 4
+}

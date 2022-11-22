@@ -14,13 +14,31 @@ object FormMain: TFormMain
   Position = poScreenCenter
   PixelsPerInch = 96
   TextHeight = 13
-  object btnConsole: TButton
+  object btnConsoleRichEdit: TButton
     Left = 10
     Top = 10
-    Width = 75
+    Width = 159
     Height = 25
-    Caption = 'Console'
+    Caption = 'Console (RichEdit)'
     TabOrder = 0
-    OnClick = btnConsoleClick
+    OnClick = btnConsoleRichEditClick
+  end
+  object btnDatabase: TButton
+    Left = 10
+    Top = 41
+    Width = 159
+    Height = 25
+    Caption = 'Base de dados'
+    TabOrder = 1
+    OnClick = btnDatabaseClick
+  end
+  object btnXml: TButton
+    Left = 10
+    Top = 72
+    Width = 159
+    Height = 25
+    Caption = 'Xml'
+    TabOrder = 2
+    OnClick = btnXmlClick
   end
 end

@@ -16,8 +16,12 @@ uses
 
 type
   TFormMain = class(TForm)
-    btnConsole: TButton;
-    procedure btnConsoleClick(Sender: TObject);
+    btnConsoleRichEdit: TButton;
+    btnDatabase: TButton;
+    btnXml: TButton;
+    procedure btnConsoleRichEditClick(Sender: TObject);
+    procedure btnDatabaseClick(Sender: TObject);
+    procedure btnXmlClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -32,11 +36,25 @@ implementation
 {$R *.dfm}
 
 uses
-  uFormConsole;
+  uFormConsole,
+  uFormDatabase,
+  uFormXml;
 
-procedure TFormMain.btnConsoleClick(Sender: TObject);
+{ TFormMain }
+
+procedure TFormMain.btnConsoleRichEditClick(Sender: TObject);
 begin
   TFormConsole.Execute;
+end;
+
+procedure TFormMain.btnDatabaseClick(Sender: TObject);
+begin
+  TFormDatabase.Execute;
+end;
+
+procedure TFormMain.btnXmlClick(Sender: TObject);
+begin
+  TFormXml.Execute;
 end;
 
 end.

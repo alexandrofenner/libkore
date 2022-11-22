@@ -3,8 +3,7 @@ unit uFormConsole;
 interface
 
 uses
-  LibKoreIntfs,
-  LibKoreUtils,
+  LibKoreAll,
 
   Winapi.Windows,
   Winapi.Messages,
@@ -27,17 +26,26 @@ type
     btnExecute: TButton;
     TimerCheck: TTimer;
     cbxRemoveAdministrativePermissions: TCheckBox;
+    cbxRecording: TCheckBox;
+    btnLoadRecordingFile: TButton;
     procedure btnExecuteClick(Sender: TObject);
     procedure TimerCheckTimer(Sender: TObject);
+    procedure btnLoadRecordingFileClick(Sender: TObject);
   private
-    FIntfConsoleFactory: IcrConsoleFactory;
-    FIntfConsole: IcrConsole;
-    FIntfConsoleCache: IcrConsole;
+    FRecordingFileName: TcrString;
+    FConsoleFactory: TcrConsoleFactory;
+    FConsole: TcrConsole;
+    FConsoleCache: TcrConsole;
+    FWinPseudoConsole: TcrWinPseudoConsole;
 
-    FIntfWinPseudoConsole: IcrWinPseudoConsole;
     FCanClose: Boolean;
 
     procedure IntfsInitialize;
+    procedure EnableControls;
+    procedure DisableControls;
+
+    procedure ConsoleAddLine(const AStringType: Pointer;
+      const AStringData: TcrString); stdcall;
   protected
     { Override }
     procedure DoClose(var ACloseAction: TCloseAction); override;
@@ -46,6 +54,7 @@ type
 
     { cdtor }
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
   end;
 
 implementation
@@ -53,7 +62,9 @@ implementation
 {$R *.dfm}
 
 procedure TcrConsoleAddLineMethod(
-  const AUserData: Pointer; const S: WideString); stdcall;
+  const AUserData: Pointer;
+  const AStringType: Pointer {TcrIntfStringType};
+  const AStringData: Pointer {TcrIntfStringData}); stdcall;
 var
   LForm: TFormConsole;
   LRichEdit: TRichEdit;
@@ -61,7 +72,7 @@ begin
   LForm := AUserData;
   LRichEdit := LForm.reOutput;
 
-  LRichEdit.Lines.Add(S);
+  LRichEdit.Lines.Add(string(AStringData));
   LRichEdit.SelStart := LRichEdit.GetTextLen;
   LRichEdit.Perform(EM_SCROLLCARET, 0, 0);
 end;
@@ -70,40 +81,104 @@ end;
 
 procedure TFormConsole.btnExecuteClick(Sender: TObject);
 var
-  LFactory: IcrWinPseudoConsoleFactory;
+  LFactory: TcrWinPseudoConsoleFactory;
 begin
-  btnExecute.Enabled := False;
-  lbeCommandLine.Enabled := False;
-  cbxRemoveAdministrativePermissions.Enabled := False;
-  FCanClose := False;
+  DisableControls;
   reOutput.Clear;
 
-  { -> Criar o WinPseudoConsole (que será o 'container' de
-                                 execução do projeto filho) }
-  LibKoreCreateFactory('WinPseudoConsole', IInterface(LFactory));
-  if (not LFactory.SetCommandLine(lbeCommandLine.Text)) then
-    LibKoreFailed(LFactory);
-  if (not LFactory.SetConsole(FIntfConsoleCache)) then
-    LibKoreFailed(LFactory);
+  try
+    { -> Criar o WinPseudoConsole (que será o 'container' de
+                                   execução do projeto filho) }
+    LFactory := TcrWinPseudoConsoleFactory.Create;
+    LFactory.SetCommandLine(lbeCommandLine.Text);
+    LFactory.SetConsole(FConsoleCache);
+    if cbxRemoveAdministrativePermissions.Checked then
+      LFactory.RemoveAdministrativePermissions;
 
-  if cbxRemoveAdministrativePermissions.Checked then
-    if (not LFactory.RemoveAdministrativePermissions) then
-      LibKoreFailed(LFactory);
+    if cbxRecording.Checked then
+      LFactory.SetRecordingFileName(FRecordingFileName);
 
-  if (not LFactory.Create(FIntfWinPseudoConsole)) then
-    LibKoreFailed(LFactory);
+    FWinPseudoConsole := LFactory.CreateObject;
+    FWinPseudoConsole.BeginExecute;
 
-  if (not FIntfWinPseudoConsole.BeginExecute) then
-    LibKoreFailed(FIntfWinPseudoConsole);
+    TimerCheck.Enabled := True;
+    FreeAndNil(LFactory);
+  except
+    EnableControls;
+    FreeAndNil(FWinPseudoConsole);
+    FreeAndNil(LFactory);
+    raise;
+  end;
+end;
 
-  TimerCheck.Enabled := True;
+procedure TFormConsole.btnLoadRecordingFileClick(Sender: TObject);
+var
+  LUtils: TcrConsoleUtils;
+begin
+  LUtils := nil;
+  DisableControls;
+  reOutput.Clear;
+  try
+    LUtils := FConsoleFactory.CreateUtils;
+    LUtils.AddFromAnsiEscCodeFile(FConsoleCache, FRecordingFileName);
+    FreeAndNil(LUtils);
+    EnableControls;
+  except
+    FreeAndNil(LUtils);
+    EnableControls;
+    raise;
+  end;
+end;
+
+procedure TFormConsole.ConsoleAddLine(const AStringType: Pointer;
+  const AStringData: TcrString);
+var
+  LRichEdit: TRichEdit;
+begin
+  LRichEdit := reOutput;
+
+  LRichEdit.Lines.Add(AStringData);
+  LRichEdit.SelStart := LRichEdit.GetTextLen;
+  LRichEdit.Perform(EM_SCROLLCARET, 0, 0);
 end;
 
 constructor TFormConsole.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  FConsoleFactory := TcrConsoleFactory.Create;
+
+//  FConsole := FConsoleFactory.CreateByProcessId(10772);
+//  FConsole.ClearScreen(2);
+//  FConsole.SetCursorPosition(1, 1);
+//  FConsole.SelectGraphicRenditionRGB(48, $00);
+//  FConsole.SelectGraphicRenditionRGB(38, $ffffff);
+//  FConsole.CursorPreviousLine(10);
+//  FConsole.SetCursorVisible(False);
+//  FConsole.Text('Alexandro Landmann Fenner' + sLineBreak);
+//  FConsole.SetTitle('asdf');
+
   IntfsInitialize;
   FCanClose := True;
+  FRecordingFileName := ChangeFileExt(GetModuleName(MainInstance), '.rec');
+  btnLoadRecordingFile.Enabled := FileExists(FRecordingFileName);
+end;
+
+destructor TFormConsole.Destroy;
+begin
+  inherited Destroy;
+  FreeAndNil(FConsoleCache);
+  FreeAndNil(FConsole);
+  FreeAndNil(FConsoleFactory);
+end;
+
+procedure TFormConsole.DisableControls;
+begin
+  btnExecute.Enabled := False;
+  lbeCommandLine.Enabled := False;
+  cbxRemoveAdministrativePermissions.Enabled := False;
+  cbxRecording.Enabled := False;
+  btnLoadRecordingFile.Enabled := False;
+  FCanClose := False;
 end;
 
 procedure TFormConsole.DoClose(var ACloseAction: TCloseAction);
@@ -114,6 +189,17 @@ begin
     Exit;
   end;
   inherited DoClose(ACloseAction);
+end;
+
+procedure TFormConsole.EnableControls;
+begin
+  TimerCheck.Enabled := False;
+  btnExecute.Enabled := True;
+  lbeCommandLine.Enabled := True;
+  cbxRemoveAdministrativePermissions.Enabled := True;
+  cbxRecording.Enabled := True;
+  btnLoadRecordingFile.Enabled := FileExists(FRecordingFileName);
+  FCanClose := True;
 end;
 
 class procedure TFormConsole.Execute;
@@ -130,14 +216,9 @@ end;
 
 procedure TFormConsole.IntfsInitialize;
 begin
-  { -> Criar o Factory dos objetos 'console' }
-  LibKoreCreateFactory('Console', IInterface(FIntfConsoleFactory));
-
   { -> Criar o objeto console que receberá o conteúdo por linha
       Para adicionar no richedit }
-  if (not FIntfConsoleFactory.CreateByAddLine(
-    TcrConsoleAddLineMethod, Self, FIntfConsole)) then
-    LibKoreFailed(FIntfConsoleFactory);
+  FConsole := FConsoleFactory.CreateByAddLine(ConsoleAddLine);
 
   { -> Criar o objeto console de 'cache' que desviará os dados para
         o objeto console criado no passo anterior.
@@ -158,27 +239,17 @@ begin
 
         Um mecanismo de sincronização poderia ser necessário, porquê
         a execução destes métodos envolvem controles da VCL (RichEdit) }
-  if (not FIntfConsoleFactory.CreateCacheByWnd(Handle,
-    FIntfConsole, FIntfConsoleCache)) then
-      LibKoreFailed(FIntfConsoleFactory);
+  FConsoleCache := FConsoleFactory.CreateCacheByWnd(Handle, FConsole);
 end;
 
 procedure TFormConsole.TimerCheckTimer(Sender: TObject);
-var
-  LIsTerminated: WordBool;
 begin
-  if FIntfWinPseudoConsole.IsTerminated(LIsTerminated) then
+  if ((FWinPseudoConsole = nil) or FWinPseudoConsole.IsTerminated) then
   begin
-    if LIsTerminated then
-    begin
-      TimerCheck.Enabled := False;
-      btnExecute.Enabled := True;
-      lbeCommandLine.Enabled := True;
-      cbxRemoveAdministrativePermissions.Enabled := True;
-      FCanClose := True;
-      FIntfWinPseudoConsole := nil;
-    end;
+    EnableControls;
+    FreeAndNil(FWinPseudoConsole);
   end;
 end;
 
 end.
+

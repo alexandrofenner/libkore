@@ -69,6 +69,24 @@ object FormConsole: TFormConsole
       Caption = 'Remover permiss'#245'es de administrador'
       TabOrder = 2
     end
+    object cbxRecording: TCheckBox
+      Left = 416
+      Top = 2
+      Width = 97
+      Height = 17
+      Caption = 'Gravar sa'#237'da'
+      TabOrder = 3
+    end
+    object btnLoadRecordingFile: TButton
+      Left = 374
+      Top = 23
+      Width = 120
+      Height = 25
+      Caption = 'Carregar Grava'#231#227'o'
+      Enabled = False
+      TabOrder = 4
+      OnClick = btnLoadRecordingFileClick
+    end
   end
   object TimerCheck: TTimer
     Enabled = False
